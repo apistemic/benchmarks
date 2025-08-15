@@ -1,5 +1,9 @@
+# secrets
 .env
 
 # data files
 cache/
 .data/external/
+
+# claude
+.claude/settings.local.json

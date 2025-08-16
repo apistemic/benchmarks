@@ -86,6 +86,7 @@ def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
         model_r2_scores = [metrics.r2 for metrics in all_results[model]]
         r2_scores.append(model_r2_scores)
 
+    plt.style.use("grayscale")
     plt.figure(figsize=(10, 6))
     plt.boxplot(r2_scores, tick_labels=models, patch_artist=False)
 
@@ -471,4 +472,5 @@ def create_competitiveness_prompt(company_name, competing_company_name):
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
+    run_embedding_classification()
     run_scoring()

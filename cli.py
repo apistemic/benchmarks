@@ -9,7 +9,7 @@ from urllib.parse import quote_plus
 import anthropic
 from tqdm import tqdm
 from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from minimalkv.fs import FilesystemStore
 from enum import Enum
@@ -345,6 +345,15 @@ def run_scoring():
     print(df)
 
     llms = {
+        "google__gemini-2.5-flash-lite": ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash-lite", google_api_key=os.environ["GEMINI_API_KEY"]
+        ),
+        "google__gemini-2.5-flash": ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash", google_api_key=os.environ["GEMINI_API_KEY"]
+        ),
+        "google__gemini-2.5-pro": ChatGoogleGenerativeAI(
+            model="gemini-2.5-pro", google_api_key=os.environ["GEMINI_API_KEY"]
+        ),
         "anthropic__claude-opus-4-1": ChatAnthropic(
             model="claude-opus-4-1-20250805", timeout=30
         ),

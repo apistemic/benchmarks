@@ -113,7 +113,8 @@ def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
 
 def create_r2_plot(results: dict[str, EvaluationMetrics]) -> None:
     """Create bar plot of R² scores by LLM model."""
-    models = sorted(results.keys())
+    # Sort models by R² score in descending order
+    models = sorted(results.keys(), key=lambda x: results[x].r2, reverse=True)
     r2_scores = [results[model].r2 for model in models]
 
     # Clean up model names for display
@@ -156,7 +157,10 @@ def create_r2_plot(results: dict[str, EvaluationMetrics]) -> None:
 
 def create_spearman_plot(results: dict[str, EvaluationMetrics]) -> None:
     """Create bar plot of Spearman correlations by LLM model."""
-    models = sorted(results.keys())
+    # Sort models by Spearman correlation in descending order
+    models = sorted(
+        results.keys(), key=lambda x: results[x].spearman_corr, reverse=True
+    )
     spearman_corrs = [results[model].spearman_corr for model in models]
 
     # Clean up model names for display

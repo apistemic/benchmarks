@@ -234,13 +234,12 @@ def run_embedding_classification(run_count: int = 5):
     ]
 
     results_per_model = {}
-    for embedder in embedders:
-        results_per_run = []
-        model_name = embedder.model
+    for _ in range(1, run_count + 1):
+        # split per run, so each model uses same splits
+        df_train, df_test = train_test_split(df_agg, test_size=0.25)
 
-        for _ in range(1, run_count + 1):
-            # split per run
-            df_train, df_test = train_test_split(df_agg, test_size=0.25)
+        for embedder in embedders:
+            model_name = embedder.model
 
             print("\n")
             print("#" * 50)
@@ -311,7 +310,13 @@ def run_embedding_classification(run_count: int = 5):
 
             # Evaluate the model on test set
             metrics = evaluate_similarity_predictions(df_test["similarity"], y_pred)
-            results_per_run.append(metrics)
+
+            # add the run metrics to the results per model
+            try:
+                results_per_model[model_name].append(metrics)
+            except KeyError:
+                # first run of model
+                results_per_model[model_name] = [metrics]
 
             # Create results dataframe with test predictions
             df_test_results = df_test.copy()
@@ -328,9 +333,6 @@ def run_embedding_classification(run_count: int = 5):
                     ]
                 ].head()
             )
-
-        results_per_model[model_name] = results_per_run
-        print(results_per_run)
 
     # Create box plot
     create_box_plot(results_per_model)

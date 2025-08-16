@@ -21,4 +21,26 @@ where industry professionals assessed relative competitiveness using a standardi
 These assessments span diverse sectors, encompassing companies of varying sizes and geographic locations 
 to ensure comprehensive coverage across different market contexts.
 
+**Results**:
 ![benchmark of LLM embeddings](.data/plots/r2-scores-boxplot.png)
+
+## LLM-based Company Competitiveness Scoring
+**Goal**: 
+Evaluate how well different LLMs can directly assess company competitiveness compared to human raters.
+
+**Methodology**:
+We prompt LLMs to rate the competitiveness between company pairs on a 1-5 scale.
+We previously prompted human raters to do the same with the same prompts.
+
+The LLMs receive only company names and must use their internal knowledge to assess competitive relationships. 
+Performance is measured using R² scores and Spearman correlations against expert human evaluations.
+While R² should rate overall similarity to human raters, Spearman correlations between human and LLM ratings should indicate directional correctness,
+i.e. whether the LLM has a sense of competitiveness more generally.
+
+**Dataset**:
+Same expert-evaluated competitive positioning dataset from [apistemic markets](https://markets.apistemic.com).
+
+**Results**:
+![LLM R² scores](.data/plots/r2-scores-barplot.png)
+
+![LLM Spearman correlations](.data/plots/spearman-correlations-barplot.png)

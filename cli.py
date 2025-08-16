@@ -1,7 +1,17 @@
+from concurrent.futures import ThreadPoolExecutor
 import logging
 import os
+import pickle
+import random
+from time import sleep
+from urllib.parse import quote_plus
+
+import anthropic
+from tqdm import tqdm
+from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_openai import OpenAIEmbeddings
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from minimalkv.fs import FilesystemStore
 from enum import Enum
 from pydantic import BaseModel
 
@@ -16,7 +26,9 @@ from sklearn.metrics import r2_score, mean_squared_error
 from scipy.stats import spearmanr
 import numpy as np
 import matplotlib.pyplot as plt
+from apistemic.benchmarks.datasets.companies import fetch_companies_df
 from apistemic.benchmarks.datasets.competitors import fetch_competitor_votes
+from apistemic.benchmarks.models import CompetitvenessRatingAnswer
 from apistemic.benchmarks.transformers import (
     CompanyEmbeddingTransformer,
     LoadOrganizationTransformer,
@@ -99,7 +111,97 @@ def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
         print(f"  Max R²:  {np.max(model_r2_scores):.4f}")
 
 
-def main(run_count: int = 5):
+def create_r2_plot(results: dict[str, EvaluationMetrics]) -> None:
+    """Create bar plot of R² scores by LLM model."""
+    models = sorted(results.keys())
+    r2_scores = [results[model].r2 for model in models]
+
+    # Clean up model names for display
+    display_names = []
+    for model in models:
+        if "__" in model:
+            provider, model_name = model.split("__", 1)
+            display_names.append(f"{provider}\n{model_name}")
+        else:
+            display_names.append(model)
+
+    plt.figure(figsize=(12, 6))
+    bars = plt.bar(range(len(models)), r2_scores, color="forestgreen", alpha=0.7)
+
+    plt.title("LLM Performance on Competitiveness Rating Task")
+    plt.xlabel("LLM Model")
+    plt.ylabel("R² Score")
+    plt.xticks(range(len(models)), display_names, rotation=45, ha="right")
+    plt.grid(True, alpha=0.3, axis="y")
+
+    # Add value labels on bars
+    for bar, score in zip(bars, r2_scores):
+        plt.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.01,
+            f"{score:.3f}",
+            ha="center",
+            va="bottom",
+        )
+
+    plt.tight_layout()
+
+    # Save the plot
+    plt.savefig(".data/plots/r2-scores-barplot.png", dpi=300, bbox_inches="tight")
+
+
+def create_spearman_plot(results: dict[str, EvaluationMetrics]) -> None:
+    """Create bar plot of Spearman correlations by LLM model."""
+    models = sorted(results.keys())
+    spearman_corrs = [results[model].spearman_corr for model in models]
+
+    # Clean up model names for display
+    display_names = []
+    for model in models:
+        if "__" in model:
+            provider, model_name = model.split("__", 1)
+            display_names.append(f"{provider}\n{model_name}")
+        else:
+            display_names.append(model)
+
+    plt.figure(figsize=(12, 6))
+    bars = plt.bar(range(len(models)), spearman_corrs, color="steelblue", alpha=0.7)
+
+    plt.title("LLM Performance on Competitiveness Rating Task")
+    plt.xlabel("LLM Model")
+    plt.ylabel("Spearman Correlation")
+    plt.xticks(range(len(models)), display_names, rotation=45, ha="right")
+    plt.grid(True, alpha=0.3, axis="y")
+
+    # Add value labels on bars
+    for bar, corr in zip(bars, spearman_corrs):
+        plt.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.01,
+            f"{corr:.3f}",
+            ha="center",
+            va="bottom",
+        )
+
+    plt.tight_layout()
+
+    # Save the plot
+    plt.savefig(
+        ".data/plots/spearman-correlations-barplot.png", dpi=300, bbox_inches="tight"
+    )
+
+    # Print summary statistics
+    print("\n" + "=" * 60)
+    print("LLM SPEARMAN CORRELATION RESULTS")
+    print("=" * 60)
+    for model, metrics in results.items():
+        print(f"\n{model}:")
+        print(f"  Spearman ρ: {metrics.spearman_corr:.4f} (p={metrics.spearman_p:.4f})")
+        print(f"  R²: {metrics.r2:.4f}")
+        print(f"  RMSE: {metrics.rmse:.4f}")
+
+
+def run_embedding_classification(run_count: int = 5):
     df = fetch_competitor_votes()
     df_agg = df.groupby(["from_organization_id", "to_organization_id"]).mean(
         "similarity"
@@ -223,6 +325,131 @@ def main(run_count: int = 5):
     create_box_plot(results_per_model)
 
 
+def run_scoring():
+    df = fetch_competitor_votes()
+    df_from = fetch_companies_df(df["from_organization_id"])
+    df_to = fetch_companies_df(df["to_organization_id"])
+    df = df.merge(
+        df_from, left_on="from_organization_id", right_on="id", suffixes=("", "_from")
+    )
+    df = df.merge(
+        df_to, left_on="to_organization_id", right_on="id", suffixes=("", "_to")
+    )
+
+    print(df)
+
+    llms = {
+        "anthropic__claude-opus-4-1": ChatAnthropic(
+            model="claude-opus-4-1-20250805", timeout=30
+        ),
+        "anthropic__claude-sonnet-4": ChatAnthropic(
+            model="claude-sonnet-4-20250514", timeout=30
+        ),
+        "anthropic__claude-3-5-haiku": ChatAnthropic(
+            model="claude-3-5-haiku-20241022", timeout=30
+        ),
+        "openai__gpt-5": ChatOpenAI(model="gpt-5"),
+        "openai__gpt-5-mini": ChatOpenAI(model="gpt-5-mini"),
+        "openai__gpt-5-nano": ChatOpenAI(model="gpt-5-nano"),
+    }
+
+    store = FilesystemStore(".cache")
+
+    results = {}
+    for llm_identifier, llm in sorted(llms.items(), key=lambda x: random.random()):
+        print("#" * 50)
+        print(f"Running {llm}")
+        print("#" * 50)
+
+        structured_llm = llm.with_structured_output(CompetitvenessRatingAnswer)
+
+        def prompt_rating_with_cache(company_name, competing_company_name) -> int:
+            cache_key = f"{company_name}_{competing_company_name}_{llm_identifier}"
+            cache_key = quote_plus(cache_key, safe="")
+
+            try:
+                cached_result = store.get(cache_key)
+                return pickle.loads(cached_result)
+            except KeyError:
+                logging.debug(f"No cache hit for {cache_key}, invoking LLM...")
+                rating = prompt_rating(company_name, competing_company_name)
+                store.put(cache_key, pickle.dumps(rating))
+                return rating
+
+        def prompt_rating(company_name, competing_company_name) -> int:
+            for i in range(3):
+                try:
+                    prompt = create_competitiveness_prompt(
+                        company_name, competing_company_name
+                    )
+                    result = structured_llm.invoke(prompt)
+                    return result.value
+                except KeyboardInterrupt:
+                    logging.info("KeyboardInterrupt received, stopping execution.")
+                    raise
+                except anthropic.RateLimitError:
+                    logging.error("Rate limit exceeded, retrying...")
+                    sleep(10)
+                except Exception as e:
+                    logging.error(f"Error invoking LLM: {e}")
+                    if i < 2:
+                        logging.warning("Retrying...")
+                        sleep(2 ** (i + 1))
+                    else:
+                        logging.error("Failed after 3 attempts.")
+                        raise e
+
+        with ThreadPoolExecutor(max_workers=16) as executor:
+            scores = list(
+                tqdm(
+                    executor.map(
+                        lambda row: prompt_rating_with_cache(row[0], row[1]),
+                        df[["name", "name_to"]].itertuples(index=False),
+                    ),
+                    total=len(df),
+                    smoothing=0.01,
+                    desc=f"requesting {llm_identifier}",
+                )
+            )
+
+        df["rating"] = list(scores)
+        df["score"] = (df["rating"] - 1.0) / 4.0
+        print(df)
+
+        # oai has .model_name, anthropic has .model
+        # -> use separate identifier
+        results[llm_identifier] = evaluate_similarity_predictions(
+            df["similarity"], df["score"]
+        )
+
+    for model, metrics in results.items():
+        print("\n")
+        print(f"{model}:")
+        print(metrics)
+
+    # Create R² and Spearman correlation plots
+    create_r2_plot(results)
+    create_spearman_plot(results)
+
+
+def create_competitiveness_prompt(company_name, competing_company_name):
+    prompt = (
+        "You are an expert business analyst. "
+        "Given the names of two companies, your task is to determine how competitive they are in terms of business focus, products, and market presence. "
+        "We see competitiveness as a transitive relation, but not a symmetric one. "
+        "For example, if Company A is a competitor of Company B, it does not imply that Company B is a competitor of Company A. "
+        "So while a small taxi company has Uber as a direct competitor (e.g. if the taxi company is from NYC), the small taxi company is not a direct competitor of Uber. "
+        "Your task is now to evaluate and rate the competitiveness of two companies on a scale from 1 to 5, where:\n"
+        "1: neither similar nor competitors\n"
+        "2: somewhat similar\n"
+        "3: distant competitor, similar product\n"
+        "4: competitor, but with different geo/size/etc.\n"
+        "5: direct competitor\n\n"
+        f"So looking at {company_name}, is {competing_company_name} a relevant competitor? "
+    )
+    return prompt
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    main()
+    run_scoring()

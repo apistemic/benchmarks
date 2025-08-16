@@ -3,7 +3,11 @@
 
 # data files
 cache/
+.cache/
 .data/external/
+
+# ide
+.vscode/
 
 # claude
 .claude/settings.local.json

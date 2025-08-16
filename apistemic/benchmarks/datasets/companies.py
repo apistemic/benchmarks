@@ -3,6 +3,7 @@ from sqlalchemy import MetaData, Table
 from apistemic.benchmarks.datasets.util import get_db_engine
 from sqlalchemy.orm import Session
 
+
 def fetch_companies_df(company_ids):
     company_ids = list(map(int, company_ids))  # Ensure IDs are integers
 
@@ -11,7 +12,6 @@ def fetch_companies_df(company_ids):
     # create sqlalchemy query
     metadata = MetaData()
     organizations_table = Table("organizations", metadata, autoload_with=engine)
-
 
     with Session(engine) as session:
         query = session.query(organizations_table).filter(

@@ -6,15 +6,13 @@ from langchain_core.embeddings.embeddings import Embeddings
 from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
 
 
-
 class LoadOrganizationTransformer(BaseEstimator, TransformerMixin):
-
     def fit(self, X, y=None):
         """
         Fit the transformer to the data.
         """
         # Set fitted attributes for sklearn's check_is_fitted
-        self.n_features_in_ = len(X) if hasattr(X, '__len__') else 1
+        self.n_features_in_ = len(X) if hasattr(X, "__len__") else 1
         return self
 
     def transform(self, X):
@@ -51,7 +49,13 @@ class CompanyEmbeddingTransformer(BaseEstimator, TransformerMixin):
         Fit the transformer to the data.
         """
         # Set fitted attributes for sklearn's check_is_fitted
-        self.n_features_in_ = X.shape[1] if hasattr(X, 'shape') else len(X.columns) if hasattr(X, 'columns') else 1
+        self.n_features_in_ = (
+            X.shape[1]
+            if hasattr(X, "shape")
+            else len(X.columns)
+            if hasattr(X, "columns")
+            else 1
+        )
         return self
 
     def transform(self, X):
@@ -84,11 +88,19 @@ class CompanyTupleTransformer(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         # Fit the company pipeline
-        all_org_ids = pd.concat([X["from_organization_id"], X["to_organization_id"]]).unique()
+        all_org_ids = pd.concat(
+            [X["from_organization_id"], X["to_organization_id"]]
+        ).unique()
         self.company_pipeline.fit(pd.Series(all_org_ids))
 
         # Set fitted attributes for sklearn's check_is_fitted
-        self.n_features_in_ = X.shape[1] if hasattr(X, 'shape') else len(X.columns) if hasattr(X, 'columns') else 1
+        self.n_features_in_ = (
+            X.shape[1]
+            if hasattr(X, "shape")
+            else len(X.columns)
+            if hasattr(X, "columns")
+            else 1
+        )
 
         return self
 
@@ -116,7 +128,13 @@ class EmbeddingDiffTransformer(BaseEstimator, TransformerMixin):
 
     def fit(self, X, y=None):
         # Set fitted attributes for sklearn's check_is_fitted
-        self.n_features_in_ = X.shape[1] if hasattr(X, 'shape') else len(X.columns) if hasattr(X, 'columns') else 1
+        self.n_features_in_ = (
+            X.shape[1]
+            if hasattr(X, "shape")
+            else len(X.columns)
+            if hasattr(X, "columns")
+            else 1
+        )
         return self
 
     def transform(self, X):
@@ -138,7 +156,13 @@ class CosineModel(BaseEstimator, RegressorMixin):
 
     def fit(self, X, y=None):
         # Set fitted attributes for sklearn's check_is_fitted
-        self.n_features_in_ = X.shape[1] if hasattr(X, 'shape') else len(X.columns) if hasattr(X, 'columns') else 1
+        self.n_features_in_ = (
+            X.shape[1]
+            if hasattr(X, "shape")
+            else len(X.columns)
+            if hasattr(X, "columns")
+            else 1
+        )
         return self
 
     def predict(self, X):

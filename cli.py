@@ -38,7 +38,6 @@ class EvaluationMetrics(BaseModel):
     spearman_p: float
 
 
-
 def evaluate_similarity_predictions(y_true, y_pred):
     """Evaluate predicted similarity against ground truth."""
     # R² score
@@ -70,28 +69,28 @@ def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
     """Create box plot of R² scores by model."""
     models = list(all_results.keys())
     r2_scores = []
-    
+
     for model in models:
         model_r2_scores = [metrics.r2 for metrics in all_results[model]]
         r2_scores.append(model_r2_scores)
-    
+
     plt.figure(figsize=(10, 6))
     plt.boxplot(r2_scores, tick_labels=models, patch_artist=False)
-    
-    plt.title('How Well Embedding Models Understand Companies')
-    plt.xlabel('Embedding Model (applied to company name)')
-    plt.ylabel('R² Score (based on embedded company name only)')
+
+    plt.title("How Well Embedding Models Understand Companies")
+    plt.xlabel("Embedding Model (applied to company name)")
+    plt.ylabel("R² Score (based on embedded company name only)")
     plt.grid(True, alpha=0.3)
     plt.xticks(rotation=45)
     plt.tight_layout()
-    
+
     # Save the plot
-    plt.savefig('.data/plots/r2-scores-boxplot.png', dpi=300, bbox_inches='tight')
-    
+    plt.savefig(".data/plots/r2-scores-boxplot.png", dpi=300, bbox_inches="tight")
+
     # Print summary statistics
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("SUMMARY STATISTICS")
-    print("="*60)
+    print("=" * 60)
     for model, model_r2_scores in zip(models, r2_scores):
         print(f"\n{model}:")
         print(f"  Mean R²: {np.mean(model_r2_scores):.4f}")
@@ -101,7 +100,6 @@ def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
 
 
 def main(run_count: int = 5):
-
     df = fetch_competitor_votes()
     df_agg = df.groupby(["from_organization_id", "to_organization_id"]).mean(
         "similarity"
@@ -114,7 +112,9 @@ def main(run_count: int = 5):
     df_agg = df_agg.sample(frac=1.0)
 
     embedders = [
-        GoogleGenerativeAIEmbeddings(model="gemini-embedding-001", google_api_key=os.environ["GEMINI_API_KEY"]),
+        GoogleGenerativeAIEmbeddings(
+            model="gemini-embedding-001", google_api_key=os.environ["GEMINI_API_KEY"]
+        ),
         OpenAIEmbeddings(model="text-embedding-ada-002"),
         OpenAIEmbeddings(model="text-embedding-3-small"),
         OpenAIEmbeddings(model="text-embedding-3-large"),
@@ -189,7 +189,9 @@ def main(run_count: int = 5):
             full_pipeline.fit(df_train, df_train["similarity"])
 
             print(f"Best parameters: {full_pipeline.named_steps['model'].best_params_}")
-            print(f"Best CV R^2 score: {full_pipeline.named_steps['model'].best_score_:.4f}")
+            print(
+                f"Best CV R^2 score: {full_pipeline.named_steps['model'].best_score_:.4f}"
+            )
 
             # Get predictions on test set
             y_pred = full_pipeline.predict(df_test)
@@ -213,12 +215,13 @@ def main(run_count: int = 5):
                     ]
                 ].head()
             )
-        
+
         results_per_model[model_name] = results_per_run
         print(results_per_run)
-    
+
     # Create box plot
     create_box_plot(results_per_model)
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)

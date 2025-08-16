@@ -125,23 +125,27 @@ def create_r2_plot(results: dict[str, EvaluationMetrics]) -> None:
         else:
             display_names.append(model)
 
+    plt.style.use("grayscale")
     plt.figure(figsize=(12, 6))
-    bars = plt.bar(range(len(models)), r2_scores, color="forestgreen", alpha=0.7)
+    bars = plt.bar(range(len(models)), r2_scores)
 
     plt.title("LLM Performance on Competitiveness Rating Task")
     plt.xlabel("LLM Model")
     plt.ylabel("R² Score")
     plt.xticks(range(len(models)), display_names, rotation=45, ha="right")
     plt.grid(True, alpha=0.3, axis="y")
+    plt.ylim(-1.0, 1.0)
 
     # Add value labels on bars
     for bar, score in zip(bars, r2_scores):
+        y_pos = bar.get_height() + 0.01 if score >= 0 else bar.get_height() - 0.01
+        va = "bottom" if score >= 0 else "top"
         plt.text(
             bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 0.01,
+            y_pos,
             f"{score:.3f}",
             ha="center",
-            va="bottom",
+            va=va,
         )
 
     plt.tight_layout()
@@ -164,14 +168,16 @@ def create_spearman_plot(results: dict[str, EvaluationMetrics]) -> None:
         else:
             display_names.append(model)
 
+    plt.style.use("grayscale")
     plt.figure(figsize=(12, 6))
-    bars = plt.bar(range(len(models)), spearman_corrs, color="steelblue", alpha=0.7)
+    bars = plt.bar(range(len(models)), spearman_corrs)
 
     plt.title("LLM Performance on Competitiveness Rating Task")
     plt.xlabel("LLM Model")
     plt.ylabel("Spearman Correlation")
     plt.xticks(range(len(models)), display_names, rotation=45, ha="right")
     plt.grid(True, alpha=0.3, axis="y")
+    plt.ylim(0, 1.0)
 
     # Add value labels on bars
     for bar, corr in zip(bars, spearman_corrs):

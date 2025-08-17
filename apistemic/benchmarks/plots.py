@@ -1,3 +1,5 @@
+from datetime import date
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -6,7 +8,11 @@ from .models import EvaluationMetrics
 
 def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
     """Create box plot of R² scores by model."""
-    models = list(all_results.keys())
+    # Sort models by median R² score in ascending order (lowest bottom, highest top)
+    models = sorted(
+        all_results.keys(),
+        key=lambda x: np.median([metrics.r2 for metrics in all_results[x]]),
+    )
     r2_scores = []
 
     for model in models:
@@ -14,14 +20,20 @@ def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
         r2_scores.append(model_r2_scores)
 
     plt.style.use("grayscale")
-    plt.figure(figsize=(10, 6))
-    plt.boxplot(r2_scores, tick_labels=models, patch_artist=False)
+    plt.figure(figsize=(8, 8))
+    plt.tight_layout()
+    plt.boxplot(r2_scores, tick_labels=models, patch_artist=False, vert=False)
 
-    plt.title("How Well Embedding Models Understand Companies")
-    plt.xlabel("Embedding Model (applied to company name)")
-    plt.ylabel("R² Score (based on embedded company name only)")
-    plt.grid(True, alpha=0.3)
-    plt.xticks(rotation=45)
+    today = get_date_str()
+    plt.suptitle(f"LLM Company Knowledge: Predictive Power of Embeddings ({today})")
+    plt.xlabel("R² Score")
+    plt.ylabel("LLM Embedding")
+    plt.grid(True, alpha=0.3, axis="x")
+    plt.yticks(rotation=0)
+
+    # Add watermark
+    add_watermark()
+
     plt.tight_layout()
 
     # Save the plot
@@ -41,8 +53,8 @@ def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
 
 def create_r2_plot(results: dict[str, EvaluationMetrics]) -> None:
     """Create bar plot of R² scores by LLM model."""
-    # Sort models by R² score in descending order
-    models = sorted(results.keys(), key=lambda x: results[x].r2, reverse=True)
+    # Sort models by R² score in ascending order (lowest at bottom, highest at top)
+    models = sorted(results.keys(), key=lambda x: results[x].r2)
     r2_scores = [results[model].r2 for model in models]
 
     # Clean up model names for display
@@ -55,40 +67,41 @@ def create_r2_plot(results: dict[str, EvaluationMetrics]) -> None:
             display_names.append(model)
 
     plt.style.use("grayscale")
-    plt.figure(figsize=(12, 6))
-    bars = plt.bar(range(len(models)), r2_scores)
+    plt.figure(figsize=(8, 8))
+    bars = plt.barh(range(len(models)), r2_scores)
 
-    plt.title("LLM Performance on Competitiveness Rating Task")
-    plt.xlabel("LLM Model")
-    plt.ylabel("R² Score")
-    plt.xticks(range(len(models)), display_names, rotation=45, ha="right")
-    plt.grid(True, alpha=0.3, axis="y")
-    plt.ylim(-1.0, 1.0)
+    today = get_date_str()
+    plt.suptitle(f"LLM Company Knowledge: Accuracy vs Human Experts ({today})")
+    plt.xlabel("R² Score")
+    plt.ylabel("LLM")
+    plt.yticks(range(len(models)), display_names)
+    plt.grid(True, alpha=0.3, axis="x")
+    plt.xlim(-1.0, 1.0)
 
     # Add value labels on bars
     for bar, score in zip(bars, r2_scores):
-        y_pos = bar.get_height() + 0.01 if score >= 0 else bar.get_height() - 0.01
-        va = "bottom" if score >= 0 else "top"
+        x_pos = bar.get_width() + 0.01 if score >= 0 else bar.get_width() - 0.01
+        ha = "left" if score >= 0 else "right"
         plt.text(
-            bar.get_x() + bar.get_width() / 2,
-            y_pos,
+            x_pos,
+            bar.get_y() + bar.get_height() / 2,
             f"{score:.3f}",
-            ha="center",
-            va=va,
+            ha=ha,
+            va="center",
         )
 
-    plt.tight_layout()
+    # Add watermark
+    add_watermark()
 
     # Save the plot
+    plt.tight_layout()
     plt.savefig(".data/plots/r2-scores-barplot.png", dpi=300, bbox_inches="tight")
 
 
 def create_spearman_plot(results: dict[str, EvaluationMetrics]) -> None:
     """Create bar plot of Spearman correlations by LLM model."""
-    # Sort models by Spearman correlation in descending order
-    models = sorted(
-        results.keys(), key=lambda x: results[x].spearman_corr, reverse=True
-    )
+    # Sort models by Spearman correlation ascending (lowest bottom, highest top)
+    models = sorted(results.keys(), key=lambda x: results[x].spearman_corr)
     spearman_corrs = [results[model].spearman_corr for model in models]
 
     # Clean up model names for display
@@ -101,29 +114,32 @@ def create_spearman_plot(results: dict[str, EvaluationMetrics]) -> None:
             display_names.append(model)
 
     plt.style.use("grayscale")
-    plt.figure(figsize=(12, 6))
-    bars = plt.bar(range(len(models)), spearman_corrs)
+    plt.figure(figsize=(8, 8))
+    bars = plt.barh(range(len(models)), spearman_corrs)
 
-    plt.title("LLM Performance on Competitiveness Rating Task")
-    plt.xlabel("LLM Model")
-    plt.ylabel("Spearman Correlation")
-    plt.xticks(range(len(models)), display_names, rotation=45, ha="right")
-    plt.grid(True, alpha=0.3, axis="y")
-    plt.ylim(0, 1.0)
+    today = get_date_str()
+    plt.suptitle(f"LLM Company Knowledge: Ranking Correlation with Experts ({today})")
+    plt.xlabel("Spearman Correlation")
+    plt.ylabel("LLM")
+    plt.yticks(range(len(models)), display_names)
+    plt.grid(True, alpha=0.3, axis="x")
+    plt.xlim(0, 1.0)
 
     # Add value labels on bars
     for bar, corr in zip(bars, spearman_corrs):
         plt.text(
-            bar.get_x() + bar.get_width() / 2,
-            bar.get_height() + 0.01,
+            bar.get_width() + 0.01,
+            bar.get_y() + bar.get_height() / 2,
             f"{corr:.3f}",
-            ha="center",
-            va="bottom",
+            ha="left",
+            va="center",
         )
 
-    plt.tight_layout()
+    # Add watermark
+    add_watermark()
 
     # Save the plot
+    plt.tight_layout()
     plt.savefig(
         ".data/plots/spearman-correlations-barplot.png", dpi=300, bbox_inches="tight"
     )
@@ -137,3 +153,23 @@ def create_spearman_plot(results: dict[str, EvaluationMetrics]) -> None:
         print(f"  Spearman ρ: {metrics.spearman_corr:.4f} (p={metrics.spearman_p:.4f})")
         print(f"  R²: {metrics.r2:.4f}")
         print(f"  RMSE: {metrics.rmse:.4f}")
+
+
+def get_date_str() -> str:
+    """Get current date formatted as 'Month Year'."""
+    return date.today().strftime("%B %Y")
+
+
+def add_watermark() -> None:
+    """Add Apistemic watermark to current plot."""
+    plt.text(
+        0.98,
+        0.02,
+        "© Apistemic GmbH, apistemic.com",
+        transform=plt.gca().transAxes,
+        fontsize=10,
+        alpha=0.6,
+        ha="right",
+        va="bottom",
+        color="gray",
+    )

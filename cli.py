@@ -1,3 +1,4 @@
+import itertools
 import logging
 import os
 import pickle
@@ -15,10 +16,10 @@ from langchain_openai import OpenAIEmbeddings
 from minimalkv.fs import FilesystemStore
 from sklearn.feature_selection import SelectPercentile
 from sklearn.feature_selection import f_regression
-from sklearn.model_selection import RandomizedSearchCV
+from sklearn.linear_model import Ridge
+from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.svm import SVR
 from tqdm import tqdm
 
 from apistemic.benchmarks.datasets.companies import fetch_companies_df
@@ -35,7 +36,7 @@ from apistemic.benchmarks.util import create_competitiveness_prompt
 from apistemic.benchmarks.util import evaluate_similarity_predictions
 
 
-def run_embedding_classification(run_count: int = 5):
+def run_embedding_classification(run_count: int = 10):
     df = fetch_competitor_votes()
     df_agg = df.groupby(["from_organization_id", "to_organization_id"]).mean(
         "similarity"
@@ -56,105 +57,104 @@ def run_embedding_classification(run_count: int = 5):
         OpenAIEmbeddings(model="text-embedding-3-large"),
     ]
 
+    # create one split per run
+    splits = [train_test_split(df_agg, test_size=0.25) for _ in range(run_count)]
+
+    # apply each embedder to each split
+    runs = list(itertools.product(embedders, splits))
+
     results_per_model = {}
-    for _ in range(1, run_count + 1):
-        # split per run, so each model uses same splits
-        df_train, df_test = train_test_split(df_agg, test_size=0.25)
+    for embedder, (df_train, df_test) in tqdm(runs):
+        model_name = embedder.model
 
-        for embedder in embedders:
-            model_name = embedder.model
+        print("\n")
+        print("#" * 50)
+        print(embedder.model)
+        print("#" * 50)
 
-            print("\n")
-            print("#" * 50)
-            print(embedder.model)
-            print("#" * 50)
+        company_pipeline = Pipeline(
+            [
+                ("load", LoadOrganizationTransformer()),
+                ("emb", CompanyEmbeddingTransformer(embedder=embedder)),
+            ]
+        )
 
-            company_pipeline = Pipeline(
+        # Create feature pipeline (expensive operations done once)
+        feature_pipeline = Pipeline(
+            [
+                (
+                    "data_transformer",
+                    CompanyTupleTransformer(company_pipeline=company_pipeline),
+                ),
+                ("diff", EmbeddingDiffTransformer()),
+            ]
+        )
+
+        # Create gridsearch pipeline (only for hyperparameter tuning)
+        gridsearch_pipeline = Pipeline(
+            [
+                ("sel", SelectPercentile(score_func=f_regression, percentile=0)),
+                # SVR improves results, but is far too slow
+                ("reg", Ridge()),
+            ]
+        )
+
+        gridsearch = GridSearchCV(
+            gridsearch_pipeline,
+            param_grid={
+                "sel__percentile": [50, 75, 100],
+                "reg__alpha": [0.1, 1.0, 10.0, 100.0],
+            },
+            cv=5,
+            scoring="r2",
+            n_jobs=-1,
+            verbose=1,
+            refit=True,
+        )
+
+        # Create full pipeline with GridSearchCV as final estimator
+        full_pipeline = Pipeline(
+            [
+                ("features", feature_pipeline),
+                ("model", gridsearch),
+            ]
+        )
+
+        # Fit full pipeline
+        full_pipeline.fit(df_train, df_train["similarity"])
+
+        print(f"Best parameters: {full_pipeline.named_steps['model'].best_params_}")
+        best_score = full_pipeline.named_steps["model"].best_score_
+        print(f"Best CV R^2 score: {best_score:.4f}")
+
+        # Get predictions on test set
+        y_pred = full_pipeline.predict(df_test)
+
+        # Evaluate the model on test set
+        metrics = evaluate_similarity_predictions(df_test["similarity"], y_pred)
+
+        # add the run metrics to the results per model
+        try:
+            results_per_model[model_name].append(metrics)
+        except KeyError:
+            # first run of model
+            results_per_model[model_name] = [metrics]
+
+        # Create results dataframe with test predictions
+        df_test_results = df_test.copy()
+        df_test_results["similarity_predicted"] = y_pred
+
+        print("\nSample predictions:")
+        print(
+            df_test_results[
                 [
-                    ("load", LoadOrganizationTransformer()),
-                    ("emb", CompanyEmbeddingTransformer(embedder=embedder)),
+                    "from_organization_id",
+                    "to_organization_id",
+                    "similarity_predicted",
+                    "similarity",
                 ]
-            )
-
-            # Create feature pipeline (expensive operations done once)
-            feature_pipeline = Pipeline(
-                [
-                    (
-                        "data_transformer",
-                        CompanyTupleTransformer(company_pipeline=company_pipeline),
-                    ),
-                    ("diff", EmbeddingDiffTransformer()),
-                ]
-            )
-
-            # Create gridsearch pipeline (only for hyperparameter tuning)
-            gridsearch_pipeline = Pipeline(
-                [
-                    ("sel", SelectPercentile(score_func=f_regression, percentile=0)),
-                    ("reg", SVR()),
-                ]
-            )
-
-            gridsearch = RandomizedSearchCV(
-                gridsearch_pipeline,
-                param_distributions={
-                    "sel__percentile": [50, 75, 100],
-                    "reg__kernel": ["linear", "rbf"],
-                    "reg__C": [0.1, 1.0, 10.0, 100.0],
-                    "reg__epsilon": [0.01, 0.1, 0.2],
-                },
-                n_iter=100,
-                cv=5,
-                scoring="r2",
-                n_jobs=8,
-                verbose=1,
-                refit=True,
-                random_state=42,
-            )
-
-            # Create full pipeline with GridSearchCV as final estimator
-            full_pipeline = Pipeline(
-                [
-                    ("features", feature_pipeline),
-                    ("model", gridsearch),
-                ]
-            )
-
-            # Fit full pipeline
-            full_pipeline.fit(df_train, df_train["similarity"])
-
-            print(f"Best parameters: {full_pipeline.named_steps['model'].best_params_}")
-            best_score = full_pipeline.named_steps["model"].best_score_
-            print(f"Best CV R^2 score: {best_score:.4f}")
-
-            # Get predictions on test set
-            y_pred = full_pipeline.predict(df_test)
-
-            # Evaluate the model on test set
-            metrics = evaluate_similarity_predictions(df_test["similarity"], y_pred)
-
-            # add the run metrics to the results per model
-            try:
-                results_per_model[model_name].append(metrics)
-            except KeyError:
-                # first run of model
-                results_per_model[model_name] = [metrics]
-
-            # Create results dataframe with test predictions
-            df_test_results = df_test.copy()
-            df_test_results["similarity_predicted"] = y_pred
-
-            print("\nSample predictions:")
-            print(
-                df_test_results[
-                    [
-                        "from_organization_id",
-                        "to_organization_id",
-                        "similarity_predicted",
-                        "similarity",
-                    ]
-                ].head()
-            )
+            ].head()
+        )
 
     # Create box plot
     create_box_plot(results_per_model)
@@ -278,5 +278,5 @@ def run_scoring():
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    run_embedding_classification()
     run_scoring()
+    run_embedding_classification()

@@ -5,8 +5,13 @@ import numpy as np
 
 from .models import EvaluationMetrics
 
+DEFAULT_FIGSIZE = (8, 6)
 
-def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
+
+def create_box_plot(
+    all_results: dict[str, list[EvaluationMetrics]],
+    figsize: tuple[float, float] = DEFAULT_FIGSIZE,
+) -> None:
     """Create box plot of R² scores by model."""
     # Sort models by median R² score in ascending order (lowest bottom, highest top)
     models = sorted(
@@ -20,7 +25,7 @@ def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
         r2_scores.append(model_r2_scores)
 
     plt.style.use("grayscale")
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=figsize)
     plt.tight_layout()
     plt.boxplot(r2_scores, tick_labels=models, patch_artist=False, vert=False)
 
@@ -51,7 +56,10 @@ def create_box_plot(all_results: dict[str, list[EvaluationMetrics]]) -> None:
         print(f"  Max R²:  {np.max(model_r2_scores):.4f}")
 
 
-def create_r2_plot(results: dict[str, EvaluationMetrics]) -> None:
+def create_r2_plot(
+    results: dict[str, EvaluationMetrics],
+    figsize: tuple[float, float] = DEFAULT_FIGSIZE,
+) -> None:
     """Create bar plot of R² scores by LLM model."""
     # Sort models by R² score in ascending order (lowest at bottom, highest at top)
     models = sorted(results.keys(), key=lambda x: results[x].r2)
@@ -67,7 +75,7 @@ def create_r2_plot(results: dict[str, EvaluationMetrics]) -> None:
             display_names.append(model)
 
     plt.style.use("grayscale")
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=figsize)
     bars = plt.barh(range(len(models)), r2_scores)
 
     today = get_date_str()
@@ -98,7 +106,10 @@ def create_r2_plot(results: dict[str, EvaluationMetrics]) -> None:
     plt.savefig(".data/plots/r2-scores-barplot.png", dpi=300, bbox_inches="tight")
 
 
-def create_spearman_plot(results: dict[str, EvaluationMetrics]) -> None:
+def create_spearman_plot(
+    results: dict[str, EvaluationMetrics],
+    figsize: tuple[float, float] = DEFAULT_FIGSIZE,
+) -> None:
     """Create bar plot of Spearman correlations by LLM model."""
     # Sort models by Spearman correlation ascending (lowest bottom, highest top)
     models = sorted(results.keys(), key=lambda x: results[x].spearman_corr)
@@ -114,7 +125,7 @@ def create_spearman_plot(results: dict[str, EvaluationMetrics]) -> None:
             display_names.append(model)
 
     plt.style.use("grayscale")
-    plt.figure(figsize=(8, 8))
+    plt.figure(figsize=figsize)
     bars = plt.barh(range(len(models)), spearman_corrs)
 
     today = get_date_str()

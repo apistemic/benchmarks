@@ -1,9 +1,11 @@
 import pandas as pd
-from langchain.storage import LocalFileStore
 from langchain.embeddings import CacheBackedEmbeddings
-from apistemic.benchmarks.datasets.companies import fetch_companies_df
+from langchain.storage import LocalFileStore
 from langchain_core.embeddings.embeddings import Embeddings
-from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.base import BaseEstimator
+from sklearn.base import TransformerMixin
+
+from apistemic.benchmarks.datasets.companies import fetch_companies_df
 
 
 class LoadOrganizationTransformer(BaseEstimator, TransformerMixin):

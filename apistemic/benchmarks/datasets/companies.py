@@ -1,7 +1,9 @@
 import pandas as pd
-from sqlalchemy import MetaData, Table
-from apistemic.benchmarks.datasets.util import get_db_engine
+from sqlalchemy import MetaData
+from sqlalchemy import Table
 from sqlalchemy.orm import Session
+
+from apistemic.benchmarks.datasets.util import get_db_engine
 
 
 def fetch_companies_df(company_ids):

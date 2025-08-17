@@ -1,43 +1,38 @@
-from concurrent.futures import ThreadPoolExecutor
 import logging
 import os
 import pickle
 import random
+from concurrent.futures import ThreadPoolExecutor
 from time import sleep
 from urllib.parse import quote_plus
 
 import anthropic
-from apistemic.benchmarks.util import (
-    create_competitiveness_prompt,
-    evaluate_similarity_predictions,
-)
-from tqdm import tqdm
 from langchain_anthropic import ChatAnthropic
-from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
 from minimalkv.fs import FilesystemStore
-
-from sklearn.feature_selection import SelectPercentile, f_regression
+from sklearn.feature_selection import SelectPercentile
+from sklearn.feature_selection import f_regression
+from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVR
-from sklearn.model_selection import (
-    train_test_split,
-    RandomizedSearchCV,
-)
+from tqdm import tqdm
+
 from apistemic.benchmarks.datasets.companies import fetch_companies_df
 from apistemic.benchmarks.datasets.competitors import fetch_competitor_votes
 from apistemic.benchmarks.models import CompetitvenessRatingAnswer
-from apistemic.benchmarks.transformers import (
-    CompanyEmbeddingTransformer,
-    LoadOrganizationTransformer,
-    CompanyTupleTransformer,
-    EmbeddingDiffTransformer,
-)
-from apistemic.benchmarks.plots import (
-    create_box_plot,
-    create_r2_plot,
-    create_spearman_plot,
-)
+from apistemic.benchmarks.plots import create_box_plot
+from apistemic.benchmarks.plots import create_r2_plot
+from apistemic.benchmarks.plots import create_spearman_plot
+from apistemic.benchmarks.transformers import CompanyEmbeddingTransformer
+from apistemic.benchmarks.transformers import CompanyTupleTransformer
+from apistemic.benchmarks.transformers import EmbeddingDiffTransformer
+from apistemic.benchmarks.transformers import LoadOrganizationTransformer
+from apistemic.benchmarks.util import create_competitiveness_prompt
+from apistemic.benchmarks.util import evaluate_similarity_predictions
 
 
 def run_embedding_classification(run_count: int = 5):
@@ -129,9 +124,8 @@ def run_embedding_classification(run_count: int = 5):
             full_pipeline.fit(df_train, df_train["similarity"])
 
             print(f"Best parameters: {full_pipeline.named_steps['model'].best_params_}")
-            print(
-                f"Best CV R^2 score: {full_pipeline.named_steps['model'].best_score_:.4f}"
-            )
+            best_score = full_pipeline.named_steps["model"].best_score_
+            print(f"Best CV R^2 score: {best_score:.4f}")
 
             # Get predictions on test set
             y_pred = full_pipeline.predict(df_test)

@@ -1,4 +1,4 @@
-# Company-data focused LLM Benchmarks
+# LLM Benchmarks on company data
 We've spent thousands of dollars evaluating LLM performance with company data - so you can skip straight to the results.
 Watch this repo to get a notification as soon as there's a new benchmark or model.
 

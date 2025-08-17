@@ -3,7 +3,7 @@ from langchain.storage import LocalFileStore
 from langchain.embeddings import CacheBackedEmbeddings
 from apistemic.benchmarks.datasets.companies import fetch_companies_df
 from langchain_core.embeddings.embeddings import Embeddings
-from sklearn.base import BaseEstimator, TransformerMixin, RegressorMixin
+from sklearn.base import BaseEstimator, TransformerMixin
 
 
 class LoadOrganizationTransformer(BaseEstimator, TransformerMixin):
@@ -149,33 +149,3 @@ class EmbeddingDiffTransformer(BaseEstimator, TransformerMixin):
         diff_cols = [f"embedding_diff_{i}" for i in range(len(embedding_diff.columns))]
         embedding_diff.columns = diff_cols
         return embedding_diff
-
-
-class CosineModel(BaseEstimator, RegressorMixin):
-    """Simple cosine similarity model that computes cosine similarity from embeddings."""
-
-    def fit(self, X, y=None):
-        # Set fitted attributes for sklearn's check_is_fitted
-        self.n_features_in_ = (
-            X.shape[1]
-            if hasattr(X, "shape")
-            else len(X.columns)
-            if hasattr(X, "columns")
-            else 1
-        )
-        return self
-
-    def predict(self, X):
-        # Compute cosine similarity from embeddings
-        if (
-            "from_embedding_name" not in X.columns
-            or "to_embedding_name" not in X.columns
-        ):
-            raise ValueError(
-                "from_embedding_name and to_embedding_name columns not found."
-            )
-
-        cosine_sim = X[["from_embedding_name", "to_embedding_name"]].apply(
-            lambda t: pd.Series(t[0]).dot(pd.Series(t[1])), axis=1
-        )
-        return cosine_sim.values

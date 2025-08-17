@@ -7,13 +7,15 @@ from time import sleep
 from urllib.parse import quote_plus
 
 import anthropic
+from apistemic.benchmarks.util import (
+    create_competitiveness_prompt,
+    evaluate_similarity_predictions,
+)
 from tqdm import tqdm
 from langchain_anthropic import ChatAnthropic
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from minimalkv.fs import FilesystemStore
-from enum import Enum
-from pydantic import BaseModel
 
 from sklearn.feature_selection import SelectPercentile, f_regression
 from sklearn.pipeline import Pipeline
@@ -22,9 +24,6 @@ from sklearn.model_selection import (
     train_test_split,
     RandomizedSearchCV,
 )
-from sklearn.metrics import r2_score, mean_squared_error
-from scipy.stats import spearmanr
-import numpy as np
 from apistemic.benchmarks.datasets.companies import fetch_companies_df
 from apistemic.benchmarks.datasets.competitors import fetch_competitor_votes
 from apistemic.benchmarks.models import CompetitvenessRatingAnswer
@@ -39,46 +38,6 @@ from apistemic.benchmarks.plots import (
     create_r2_plot,
     create_spearman_plot,
 )
-
-
-class ModelType(Enum):
-    COSINE = "cosine"
-    SVR = "svr"
-
-
-class EvaluationMetrics(BaseModel):
-    r2: float
-    rmse: float
-    mse: float
-    spearman_corr: float
-    spearman_p: float
-
-
-def evaluate_similarity_predictions(y_true, y_pred):
-    """Evaluate predicted similarity against ground truth."""
-    # R² score
-    r2 = r2_score(y_true, y_pred)
-
-    # RMSE and MSE
-    mse = mean_squared_error(y_true, y_pred)
-    rmse = np.sqrt(mse)
-
-    # Spearman correlation
-    spearman_corr, spearman_p = spearmanr(y_true, y_pred)
-
-    print("\n--- Evaluation Results ---")
-    print(f"R² score: {r2:.4f}")
-    print(f"RMSE: {rmse:.4f}")
-    print(f"MSE: {mse:.4f}")
-    print(f"Spearman correlation: {spearman_corr:.4f} (p={spearman_p:.4f})")
-
-    return EvaluationMetrics(
-        r2=r2,
-        rmse=rmse,
-        mse=mse,
-        spearman_corr=spearman_corr,
-        spearman_p=spearman_p,
-    )
 
 
 def run_embedding_classification(run_count: int = 5):
@@ -321,24 +280,6 @@ def run_scoring():
     # Create R² and Spearman correlation plots
     create_r2_plot(results)
     create_spearman_plot(results)
-
-
-def create_competitiveness_prompt(company_name, competing_company_name):
-    prompt = (
-        "You are an expert business analyst. "
-        "Given the names of two companies, your task is to determine how competitive they are in terms of business focus, products, and market presence. "
-        "We see competitiveness as a transitive relation, but not a symmetric one. "
-        "For example, if Company A is a competitor of Company B, it does not imply that Company B is a competitor of Company A. "
-        "So while a small taxi company has Uber as a direct competitor (e.g. if the taxi company is from NYC), the small taxi company is not a direct competitor of Uber. "
-        "Your task is now to evaluate and rate the competitiveness of two companies on a scale from 1 to 5, where:\n"
-        "1: neither similar nor competitors\n"
-        "2: somewhat similar\n"
-        "3: distant competitor, similar product\n"
-        "4: competitor, but with different geo/size/etc.\n"
-        "5: direct competitor\n\n"
-        f"So looking at {company_name}, is {competing_company_name} a relevant competitor? "
-    )
-    return prompt
 
 
 if __name__ == "__main__":

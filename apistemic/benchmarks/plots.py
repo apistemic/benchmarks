@@ -171,6 +171,62 @@ def get_date_str() -> str:
     return date.today().strftime("%B %Y")
 
 
+def create_recommendations_box_plot(
+    all_results: dict[str, list[EvaluationMetrics]],
+    figsize: tuple[float, float] = DEFAULT_FIGSIZE,
+) -> None:
+    """Create box plot of R² scores by embedding model for recommendations."""
+    # Sort models by median R² score in ascending order (lowest bottom, highest top)
+    models = sorted(
+        all_results.keys(),
+        key=lambda x: np.median([metrics.r2 for metrics in all_results[x]]),
+    )
+    r2_scores = []
+
+    for model in models:
+        model_r2_scores = [metrics.r2 for metrics in all_results[model]]
+        r2_scores.append(model_r2_scores)
+
+    plt.style.use("grayscale")
+    plt.figure(figsize=figsize)
+    plt.tight_layout()
+    plt.boxplot(r2_scores, tick_labels=models, patch_artist=False, vert=False)
+
+    today = get_date_str()
+    plt.suptitle(
+        "LLM Domain Knowledge:"
+        " Can Domain Name Embeddings Predict User Preference?"
+        f" ({today})"
+    )
+    plt.xlabel("R² Score")
+    plt.ylabel("Embedding Model")
+    plt.grid(True, alpha=0.3, axis="x")
+    plt.yticks(rotation=0)
+
+    # Add watermark
+    add_watermark()
+
+    plt.tight_layout()
+
+    # Save the plot
+    plt.savefig(
+        ".data/plots/recommendations-r2-scores-boxplot.png",
+        dpi=300,
+        bbox_inches="tight",
+    )
+
+    # Print summary statistics
+    print("\n" + "=" * 60)
+    print("RECOMMENDATIONS SUMMARY STATISTICS")
+    print("=" * 60)
+    for model, model_r2_scores in zip(models, r2_scores):
+        print(f"\n{model}:")
+        print(f"  Mean R²: {np.mean(model_r2_scores):.4f}")
+        print(f"  Std R²:  {np.std(model_r2_scores):.4f}")
+        print(f"  Min R²:  {np.min(model_r2_scores):.4f}")
+        print(f"  Max R²:  {np.max(model_r2_scores):.4f}")
+
+
 def add_watermark() -> None:
     """Add Apistemic watermark to current plot."""
     plt.text(

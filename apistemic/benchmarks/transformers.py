@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from langchain.embeddings import CacheBackedEmbeddings
 from langchain.storage import LocalFileStore
@@ -81,6 +82,51 @@ class CompanyEmbeddingTransformer(BaseEstimator, TransformerMixin):
         return df
 
 
+class DomainEmbeddingTransformer(BaseEstimator, TransformerMixin):
+    def __init__(self, embedder: Embeddings):
+        self.embedder = embedder
+
+    def fit(self, X, y=None):
+        """
+        Fit the transformer to the data.
+        """
+        # Set fitted attributes for sklearn's check_is_fitted
+        self.n_features_in_ = (
+            X.shape[1]
+            if hasattr(X, "shape")
+            else len(X.columns)
+            if hasattr(X, "columns")
+            else 1
+        )
+        return self
+
+    def transform(self, X):
+        """
+        Transform the input data by engineering features.
+        """
+        if not isinstance(X, pd.DataFrame):
+            raise ValueError("Input must be pd.DataFrame")
+
+        # use df for convenience
+        df = X
+
+        store = LocalFileStore("./cache/")
+        cached_embedder = CacheBackedEmbeddings.from_bytes_store(
+            self.embedder, store, namespace=self.embedder.model, key_encoder="sha256"
+        )
+
+        return cached_embedder.embed_documents(df["domain"].values.tolist())
+
+
+class DomainEmbeddingExtractorTransformer(BaseEstimator, TransformerMixin):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        """Extract embedding vectors as numpy array for sklearn"""
+        return np.array(X["embedding_domain"].tolist())
+
+
 class CompanyTupleTransformer(BaseEstimator, TransformerMixin):
     # company pipeline turns ids to features
     company_pipeline: TransformerMixin
@@ -151,3 +197,39 @@ class EmbeddingDiffTransformer(BaseEstimator, TransformerMixin):
         diff_cols = [f"embedding_diff_{i}" for i in range(len(embedding_diff.columns))]
         embedding_diff.columns = diff_cols
         return embedding_diff
+
+
+class OneHotEncodingTransformer(BaseEstimator, TransformerMixin):
+    """Create one-hot encoded features from a specific column."""
+
+    def __init__(self, column_name):
+        self.column_name = column_name
+        from sklearn.preprocessing import OneHotEncoder
+
+        self.encoder = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+
+    def fit(self, X, y=None):
+        if not isinstance(X, pd.DataFrame):
+            raise ValueError("Input must be pd.DataFrame")
+
+        if self.column_name not in X.columns:
+            raise ValueError(f"Column '{self.column_name}' not found in DataFrame")
+
+        # Fit the encoder on the specified column
+        self.encoder.fit(X[[self.column_name]])
+
+        # Set fitted attributes for sklearn's check_is_fitted
+        self.n_features_in_ = X.shape[1] if hasattr(X, "shape") else 1
+        return self
+
+    def transform(self, X):
+        if not isinstance(X, pd.DataFrame):
+            raise ValueError("Input must be pd.DataFrame")
+
+        if self.column_name not in X.columns:
+            raise ValueError(f"Column '{self.column_name}' not found in DataFrame")
+
+        # Transform the specified column to one-hot encoded features
+        encoded = self.encoder.transform(X[[self.column_name]])
+
+        return encoded

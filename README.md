@@ -10,7 +10,7 @@ This repo thus covers many business/company-related LLM benchmarks.
 Firstly, we want to evaluate how much inherent knowledge LLMs have about companies and markets.
 To do this, we just use company names in all benchmarks without any further context provided.
 
-### Benchmark: Measuring company knowledge inherent in embeddings {#embeddings-benchmark}
+### Benchmark: Measuring company knowledge inherent in embeddings
 To measure the LLMs' company knowledge in both width and depth,
 we embed company names in this benchmark.
 With the assumption being that the more inherent knowledge an LLM has about companies,
@@ -23,12 +23,12 @@ namely scoring the competitiveness of two companies via an SVM.
 A task, that requires a wide and deep understanding of markets, individual companies, business models, and more.
 
 **Dataset**:
-See [Competitive Positioning Dataset from Apistemic Markets](#competitive-positioning-dataset).
+See [Competitive Positioning Dataset from Apistemic Markets](#competitive-positioning-dataset-from-apistemic-markets).
 
 **Results**:
 ![benchmark of LLM embeddings](.data/plots/r2-scores-boxplot.png)
 
-### Benchmark: Measuring inherent company knowledge by rating competitiveness {#rating-benchmark}
+### Benchmark: Measuring inherent company knowledge by rating competitiveness
 As a second benchmark to measure company knowledge, 
 we use the same task as before and prompt the LLMs directly this time.
 We thus provide each LLM with the same instructions a human rater got 
@@ -46,7 +46,7 @@ Spearman correlations between human and LLM ratings should indicate directional 
 i.e. whether the LLM has a sense of competitiveness more generally.
 
 **Dataset**:
-See [Competitive Positioning Dataset from Apistemic Markets](#competitive-positioning-dataset).
+See [Competitive Positioning Dataset from Apistemic Markets](#competitive-positioning-dataset-from-apistemic-markets).
 
 **Results**:
 ![LLM R² scores](.data/plots/r2-scores-barplot.png)
@@ -58,7 +58,7 @@ See [Competitive Positioning Dataset from Apistemic Markets](#competitive-positi
 Our benchmarks are based on proprietary datasets.
 This sections covers a description of each dataset used.
 
-### Competitive Positioning Dataset from Apistemic Markets {#competitive-positioning-dataset}
+### Competitive Positioning Dataset from Apistemic Markets
 
 **Source**: [apistemic markets](https://markets.apistemic.com)
 
@@ -69,5 +69,5 @@ These assessments span diverse sectors, encompassing companies of varying sizes 
 to ensure comprehensive coverage across different market contexts.
 
 **Used in**:
-- [Benchmark: Measuring company knowledge inherent in embeddings](#embeddings-benchmark)
-- [Benchmark: Measuring inherent company knowledge by rating competitiveness](#rating-benchmark)
+- [Benchmark: Measuring company knowledge inherent in embeddings](#benchmark-measuring-company-knowledge-inherent-in-embeddings)
+- [Benchmark: Measuring inherent company knowledge by rating competitiveness](#benchmark-measuring-inherent-company-knowledge-by-rating-competitiveness)

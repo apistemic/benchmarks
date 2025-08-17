@@ -18,3 +18,12 @@ dependencies = [
     "minimalkv>=1.11.2",
     "tqdm>=4.67.1",
 ]
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
